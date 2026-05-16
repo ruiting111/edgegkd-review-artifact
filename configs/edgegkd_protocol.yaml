@@ -42,7 +42,7 @@ datasets:
 graph_construction:
   dynamic_dependency: pearson_correlation
   correlation_window: 20
-  pruning_threshold: 0.35
+  pruning_threshold: 0.30
   student_support: sparse_edge_weighted
   teacher_support: topology_biased_attention
   notes:
