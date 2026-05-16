@@ -1,0 +1,89 @@
+project: edgegkd
+task: real_time_industrial_equipment_health_prediction
+
+datasets:
+  cmapss:
+    retained_sensors: [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]
+    operating_settings: [setting_1, setting_2, setting_3]
+    window_length: 30
+    stride: 1
+    rul_cap_cycles: 125
+    validation_fraction_by_engine: 0.20
+    test_split: official_test_units
+    subsets: [FD001, FD002, FD003, FD004]
+  phm2012:
+    train_bearings: [Bearing1_1, Bearing2_1, Bearing3_1]
+    validation_bearings: [Bearing1_2, Bearing2_2, Bearing3_2]
+    test_bearings:
+      - Bearing1_3
+      - Bearing1_4
+      - Bearing1_5
+      - Bearing1_6
+      - Bearing1_7
+      - Bearing2_3
+      - Bearing2_4
+      - Bearing2_5
+      - Bearing2_6
+      - Bearing2_7
+      - Bearing3_3
+    segment_length_samples: 2560
+    fft_window: hann
+    feature_nodes:
+      - root_mean_square
+      - kurtosis
+      - skewness
+      - crest_factor
+      - impulse_factor
+      - shape_factor
+      - spectral_centroid
+      - spectral_entropy
+      - spectral_bandwidth
+
+graph_construction:
+  dynamic_dependency: pearson_correlation
+  correlation_window: 20
+  pruning_threshold: 0.35
+  student_support: sparse_edge_weighted
+  teacher_support: topology_biased_attention
+  notes:
+    - Prior edges encode sensor groups and self-loops for C-MAPSS.
+    - Prior edges encode feature family and operating group for PHM 2012.
+    - Dynamic all-pair correlation cost is included in end-to-end latency.
+
+training:
+  seeds: [1, 2, 3, 4, 5]
+  label_scale:
+    cmapss: capped_cycle_scale_after_inverse_normalization
+    phm2012: normalized_lifetime
+  losses:
+    supervised: huber
+    response_distillation: gaussian_soft_health_bins
+    feature_distillation: projected_node_feature_alignment
+    relation_distillation: teacher_student_relation_distribution_matching
+
+evaluation:
+  metrics:
+    - rmse
+    - mae
+    - nasa_asymmetric_score
+    - model_size_mb
+    - latency_ms
+    - energy_mj_per_inference
+  uncertainty:
+    seed_count: 5
+    confidence_interval: paired_bootstrap_95_percent
+    significance_test: wilcoxon_signed_rank_with_holm_correction
+
+deployment:
+  primary_device: raspberry_pi_4b
+  batch_size: 1
+  mode: cpu_only
+  latency_scope:
+    - input_normalization
+    - dynamic_graph_construction
+    - graph_aggregation_or_attention
+    - temporal_encoding
+    - prediction_readout
+  energy_scope:
+    method: integrate_active_power_minus_idle_power_over_inference_interval
+    interpretation: comparative_per_inference_energy
